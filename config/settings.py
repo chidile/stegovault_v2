@@ -3,9 +3,9 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-stego-app-change-this-in-production-xyz123'
+SECRET_KEY = '^@m-m:OCukTsDR{8nmbxBe1G=b13A9^o|+Y)0w%LsvC+8ggOPRpc5tzX2tu2(b6VPd<We{b:%Fl_WKfmEFsFJ5x9#dCQx@'
 
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
