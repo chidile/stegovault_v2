@@ -1,0 +1,279 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}StegoVault{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #090b0f;
+      --surface:  #0f1318;
+      --surface2: #161c24;
+      --border:   #1e2733;
+      --accent:   #00e5a0;
+      --accent2:  #0077ff;
+      --danger:   #ff4455;
+      --warn:     #ffaa00;
+      --text:     #e8edf5;
+      --muted:    #5a6a80;
+      --mono:     'Space Mono', monospace;
+      --sans:     'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1000;
+      opacity: 0.35;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 2.5rem; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      background: rgba(9,11,15,0.92); backdrop-filter: blur(14px); z-index: 100;
+    }
+    .nav-logo { font-family: var(--mono); font-size: 1.1rem; font-weight: 700;
+      color: var(--accent); text-decoration: none; letter-spacing: -0.02em; }
+    .nav-logo span { color: var(--muted); }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a { font-family: var(--mono); font-size: 0.78rem; color: var(--muted);
+      text-decoration: none; letter-spacing: 0.1em; text-transform: uppercase; transition: color .2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    main { max-width: 900px; margin: 0 auto; padding: 4rem 2rem; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 2px; padding: 2.5rem; position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    /* ── TYPOGRAPHY ── */
+    h1 { font-size: clamp(2rem,5vw,3.5rem); font-weight: 800; line-height: 1.05; letter-spacing: -.03em; }
+    h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -.02em; margin-bottom: 1.5rem; }
+    .accent { color: var(--accent); }
+    .muted  { color: var(--muted); font-family: var(--mono); font-size: .8rem; }
+
+    /* ── FORMS ── */
+    label { display: block; font-family: var(--mono); font-size: .72rem;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .5rem; }
+    input[type="file"], input[type="password"], input[type="text"], textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: .85rem;
+      padding: .85rem 1rem; border-radius: 2px; outline: none; transition: border-color .2s;
+    }
+    input[type="file"]:focus, input[type="password"]:focus,
+    input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 140px; line-height: 1.6; }
+    .form-group { margin-bottom: 1.75rem; }
+    .help-text { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: .4rem; }
+
+    /* ── PASSWORD FIELD ── */
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 3rem; }
+    .pw-toggle {
+      position: absolute; right: .85rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: .85rem; padding: 0; line-height: 1;
+    }
+    .pw-toggle:hover { color: var(--accent); }
+
+    /* ── PASSWORD STRENGTH ── */
+    .pw-strength { margin-top: .4rem; }
+    .pw-strength-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .pw-strength-fill { height: 100%; border-radius: 2px; transition: width .3s, background .3s; width: 0; }
+    .pw-strength-label { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: .25rem; }
+
+    /* ── LOCK BADGE ── */
+    .lock-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .06em;
+      text-transform: uppercase; padding: .3rem .75rem; border-radius: 1px;
+      border: 1px solid;
+    }
+    .lock-badge.locked   { color: var(--warn);   border-color: rgba(255,170,0,.35);  background: rgba(255,170,0,.07); }
+    .lock-badge.unlocked { color: var(--accent);  border-color: rgba(0,229,160,.3);   background: rgba(0,229,160,.06); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .6rem;
+      font-family: var(--mono); font-size: .82rem; letter-spacing: .08em;
+      text-transform: uppercase; padding: .85rem 2rem; border: none;
+      border-radius: 2px; cursor: pointer; text-decoration: none; transition: all .2s;
+    }
+    .btn-primary   { background: var(--accent); color: #000; font-weight: 700; }
+    .btn-primary:hover { background: #00ffb3; transform: translateY(-1px); }
+    .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-secondary:hover { background: rgba(0,229,160,.08); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: .5rem 1.1rem; font-size: .75rem; }
+
+    /* ── ALERTS ── */
+    .alert { padding: 1rem 1.25rem; border-radius: 2px; font-family: var(--mono);
+      font-size: .82rem; margin-bottom: 1.5rem; border-left: 3px solid; }
+    .alert-success { background: rgba(0,229,160,.08); border-color: var(--accent); color: var(--accent); }
+    .alert-error   { background: rgba(255,68,85,.08);  border-color: var(--danger); color: var(--danger); }
+    .alert-warn    { background: rgba(255,170,0,.08);  border-color: var(--warn);   color: var(--warn); }
+
+    /* ── CAPACITY BAR ── */
+    .capacity-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: .4rem; }
+    .capacity-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2));
+      border-radius: 2px; transition: width .4s; }
+    .capacity-fill.warn { background: var(--warn); }
+    .capacity-fill.full { background: var(--danger); }
+
+    /* ── DROP ZONE ── */
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: 2px; padding: 2.5rem;
+      text-align: center; cursor: pointer; transition: all .2s; position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(0,229,160,.04); }
+    .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop-icon { font-size: 2rem; margin-bottom: .75rem; }
+    .drop-label { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
+    .drop-label strong { color: var(--accent); }
+
+    /* ── PREVIEW ── */
+    .preview-box { border: 1px dashed var(--border); border-radius: 2px; padding: 1.5rem;
+      text-align: center; background: var(--surface2); }
+    .preview-box img { max-width: 100%; max-height: 280px; object-fit: contain; border-radius: 2px; }
+
+    /* ── MESSAGE OUTPUT ── */
+    .message-out {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent); padding: 1.25rem;
+      font-family: var(--mono); font-size: .85rem; line-height: 1.7;
+      white-space: pre-wrap; word-break: break-word; border-radius: 2px;
+      max-height: 340px; overflow-y: auto;
+    }
+
+    /* ── STATS ── */
+    .stats-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; }
+    .stat { flex: 1; min-width: 110px; background: var(--surface2); border: 1px solid var(--border);
+      padding: .85rem 1rem; border-radius: 2px; }
+    .stat-label { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted); }
+    .stat-value { font-family: var(--mono); font-size: 1.05rem; color: var(--accent); margin-top: .25rem; }
+
+    /* ── MISC ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .pill { display: inline-block; font-family: var(--mono); font-size: .7rem; letter-spacing: .06em;
+      text-transform: uppercase; padding: .2rem .6rem; border-radius: 1px;
+      background: rgba(0,229,160,.1); color: var(--accent); border: 1px solid rgba(0,229,160,.25); }
+
+    /* ── SPINNER ── */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid transparent;
+      border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp .5s ease both; }
+    .delay-1 { animation-delay: .1s; } .delay-2 { animation-delay: .2s; } .delay-3 { animation-delay: .3s; }
+
+    /* ══════════════════════════════════════════
+       PASSWORD MODAL
+    ══════════════════════════════════════════ */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(9,11,15,.85); backdrop-filter: blur(6px);
+      z-index: 500; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 2px; padding: 2.5rem; width: min(480px, 94vw);
+      position: relative; animation: fadeUp .25s ease;
+    }
+    .modal::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--warn), var(--accent2));
+    }
+    .modal-icon { font-size: 2.5rem; margin-bottom: 1rem; display: block; }
+    .modal h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: .4rem; }
+    .modal p  { font-family: var(--mono); font-size: .8rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+    .modal-close {
+      position: absolute; top: 1rem; right: 1.25rem;
+      background: none; border: none; color: var(--muted);
+      font-size: 1.2rem; cursor: pointer; line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-actions { display: flex; gap: .75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+
+    /* ── EXPORT BUTTONS ROW ── */
+    .export-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+
+    /* ── FOOTER ── */
+    footer { text-align: center; padding: 2rem; font-family: var(--mono);
+      font-size: .72rem; color: var(--muted); border-top: 1px solid var(--border); }
+
+    @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } nav { padding: 1rem 1.25rem; } }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="{% url 'index' %}">STEGO<span>VAULT</span></a>
+    <ul class="nav-links">
+      <li><a href="{% url 'index' %}" {% if request.resolver_match.url_name == 'index' %}class="active"{% endif %}>Home</a></li>
+      <li><a href="{% url 'encode' %}" {% if request.resolver_match.url_name == 'encode' %}class="active"{% endif %}>Encode</a></li>
+      <li><a href="{% url 'decode' %}" {% if request.resolver_match.url_name == 'decode' %}class="active"{% endif %}>Decode</a></li>
+    </ul>
+  </nav>
+
+  <main>{% block content %}{% endblock %}</main>
+
+  <footer>StegoVault | &copy; 2026 SIRCHIMEX </footer>
+
+  <!-- ── Global password-reveal toggle helper ── -->
+  <script>
+  function togglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    const show = inp.type === 'password';
+    inp.type   = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+  }
+
+  function pwStrength(val) {
+    let score = 0;
+    if (val.length >= 8)  score++;
+    if (val.length >= 14) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+    return score; // 0–5
+  }
+
+  function updateStrengthBar(score, fillId, labelId) {
+    const pct   = (score / 5) * 100;
+    const fill  = document.getElementById(fillId);
+    const label = document.getElementById(labelId);
+    if (!fill || !label) return;
+    fill.style.width = pct + '%';
+    const colors = ['#ff4455','#ff4455','#ffaa00','#ffaa00','#00e5a0','#00e5a0'];
+    const labels = ['Too short','Weak','Fair','Good','Strong','Very strong'];
+    fill.style.background = colors[score];
+    label.textContent     = score === 0 ? '' : labels[score];
+  }
+  </script>
+</body>
+</html>

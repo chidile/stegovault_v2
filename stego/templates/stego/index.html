@@ -1,0 +1,57 @@
+{% extends "stego/base.html" %}
+{% block title %}StegoVault — Hide Messages in Images{% endblock %}
+{% block content %}
+<div class="fade-up" style="text-align:center;padding:3rem 0 4rem">
+  <p class="muted" style="margin-bottom:1.2rem;letter-spacing:.2em">LSB STEGANOGRAPHY + AES-256</p>
+  <h1>Hide secrets<br><span class="accent">inside pixels.</span></h1>
+  <p style="margin:1.5rem auto;max-width:500px;color:var(--muted);font-size:1rem;line-height:1.7">
+    Embed invisible text into ordinary images. Optionally lock with a password using AES-256-GCM encryption. The image looks completely identical.
+  </p>
+  <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:2rem">
+    <a href="{% url 'encode' %}" class="btn btn-primary fade-up delay-1">&#8594; Encode &amp; Lock</a>
+    <a href="{% url 'decode' %}" class="btn btn-secondary fade-up delay-2">&#8592; Decode &amp; Export</a>
+  </div>
+</div>
+
+<hr />
+
+<div class="fade-up delay-2" style="margin-top:3rem">
+  <h2>Features</h2>
+  <div class="grid-2" style="gap:1.5rem">
+    <div class="card" style="padding:1.75rem">
+      <div style="margin-bottom:1rem"><span class="pill">LSB Encoding</span></div>
+      <p style="font-size:.9rem;line-height:1.7;color:var(--muted)">
+        Each bit of your message replaces the <strong style="color:var(--text)">least significant bit</strong> of a pixel's colour channel — a shift invisible to the human eye.
+      </p>
+    </div>
+    <div class="card" style="padding:1.75rem">
+      <div style="margin-bottom:1rem"><span class="pill">AES-256-GCM Lock</span></div>
+      <p style="font-size:.9rem;line-height:1.7;color:var(--muted)">
+        Add a password to <strong style="color:var(--text)">encrypt the payload</strong> before embedding. Uses PBKDF2-SHA256 key derivation and AES-256-GCM authenticated encryption.
+      </p>
+    </div>
+    <div class="card" style="padding:1.75rem">
+      <div style="margin-bottom:1rem"><span class="pill">Password Pop-up</span></div>
+      <p style="font-size:.9rem;line-height:1.7;color:var(--muted)">
+        When decoding, if the image is locked, a <strong style="color:var(--text)">secure password dialog</strong> automatically appears — no guessing required.
+      </p>
+    </div>
+    <div class="card" style="padding:1.75rem">
+      <div style="margin-bottom:1rem"><span class="pill">Export TXT &amp; PDF</span></div>
+      <p style="font-size:.9rem;line-height:1.7;color:var(--muted)">
+        After decoding, save the message as a <strong style="color:var(--text)">plain text file</strong> or a <strong style="color:var(--text)">styled PDF report</strong> with one click.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="card fade-up delay-3" style="margin-top:2rem;padding:1.5rem">
+  <div style="display:flex;align-items:flex-start;gap:1rem">
+    <span style="font-size:1.5rem;flex-shrink:0">&#9888;</span>
+    <p style="font-size:.88rem;line-height:1.7;color:var(--muted)">
+      <strong style="color:var(--text)">Important:</strong>
+      Always use PNG or BMP as the carrier image. JPEG compression destroys LSB data and will corrupt hidden messages. Encoded images are always saved as PNG.
+    </p>
+  </div>
+</div>
+{% endblock %}

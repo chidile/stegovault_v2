@@ -1,0 +1,299 @@
+{% extends "stego/base.html" %}
+{% block title %}Encode — StegoVault{% endblock %}
+{% block content %}
+<div class="fade-up">
+  <p class="muted" style="margin-bottom:.75rem;letter-spacing:.2em">STEGANOGRAPHY — ENCODE</p>
+  <h1 style="font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:.5rem">
+    Hide &amp; <span class="accent">lock</span> a message
+  </h1>
+  <p style="color:var(--muted);font-size:.9rem;margin-bottom:2.5rem">
+    Upload a carrier image, type your secret, and optionally add a password for AES-256 encryption.
+  </p>
+</div>
+
+{% if success %}
+<!-- ── SUCCESS ── -->
+<div class="card fade-up" style="margin-bottom:2rem">
+  <div class="alert alert-success">
+    &#10003; Message successfully embedded{% if password_used %} &amp; encrypted with your password{% endif %}.
+  </div>
+
+  {% if password_used %}
+  <div style="margin-bottom:1.5rem">
+    <span class="lock-badge locked">&#128274; Password Protected</span>
+    <p class="help-text" style="margin-top:.5rem">
+      The recipient must enter the correct password to decode this image.
+    </p>
+  </div>
+  {% else %}
+  <div style="margin-bottom:1.5rem">
+    <span class="lock-badge unlocked">&#128275; No Password</span>
+  </div>
+  {% endif %}
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <h2 style="margin-bottom:0">Stego Image</h2>
+    <a href="{{ image_data_url }}" download="{{ original_name }}" class="btn btn-primary btn-sm">
+      &#8595; Download PNG
+    </a>
+  </div>
+
+  <div class="preview-box">
+    <img src="{{ image_data_url }}" alt="Encoded stego image" />
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-label">Dimensions</div>
+      <div class="stat-value">{{ capacity.width }}×{{ capacity.height }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Message</div>
+      <div class="stat-value">{{ message_len }} B</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Capacity</div>
+      <div class="stat-value">{{ capacity.usable_chars }} B</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Usage</div>
+      <div class="stat-value" id="usage-pct">—</div>
+    </div>
+  </div>
+
+  <script>
+    const pct = {{ capacity.usable_chars }} > 0
+      ? Math.round(({{ message_len }} / {{ capacity.usable_chars }}) * 100) : 0;
+    document.getElementById('usage-pct').textContent = pct + '%';
+  </script>
+
+  <hr />
+  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+    <a href="{% url 'encode' %}" class="btn btn-secondary">+ Encode Another</a>
+    <a href="{% url 'decode' %}" class="btn btn-ghost">&#8592; Try Decoding</a>
+  </div>
+</div>
+
+{% else %}
+<!-- ── FORM ── -->
+<div class="card fade-up delay-1">
+  {% if error %}<div class="alert alert-error">&#9888; {{ error }}</div>{% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="encode-form">
+    {% csrf_token %}
+
+    <!-- Image upload -->
+    <div class="form-group">
+      <label>Carrier Image</label>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" name="image" id="image-input" accept="image/png,image/bmp,image/jpeg" required />
+        <div class="drop-icon">&#128247;</div>
+        <div class="drop-label" id="drop-label">
+          <strong>Click to upload</strong> or drag &amp; drop<br>PNG / BMP / JPEG — max 10 MB
+        </div>
+      </div>
+      <div class="help-text">PNG or BMP recommended for lossless encoding.</div>
+    </div>
+
+    <!-- Preview + capacity -->
+    <div id="preview-section" style="display:none;margin-bottom:1.75rem">
+      <div class="preview-box"><img id="preview-img" src="" alt="Preview" style="max-height:180px" /></div>
+      <div style="margin-top:.75rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.3rem">
+          <span class="muted">CAPACITY USED</span>
+          <span class="muted" id="cap-pct">—</span>
+        </div>
+        <div class="capacity-bar"><div class="capacity-fill" id="cap-fill" style="width:0"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:.3rem">
+          <span class="muted" id="cap-used">0 B used</span>
+          <span class="muted" id="cap-max">— available</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message -->
+    <div class="form-group">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <label style="margin:0">Secret Message</label>
+        <span class="muted" id="char-count">0 chars</span>
+      </div>
+      <textarea name="message" id="message-input" placeholder="Type your secret message here..." required>{% if form.message.value %}{{ form.message.value }}{% endif %}</textarea>
+    </div>
+
+    <!-- ── PASSWORD SECTION ── -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:1.5rem;margin-bottom:1.75rem">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem">
+        <span style="font-size:1.2rem">&#128274;</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">
+            Password Lock <span style="color:var(--muted);font-weight:400">(optional)</span>
+          </div>
+          <div class="help-text" style="margin-top:.1rem">
+            Leave blank for no encryption. With a password, the message is AES-256-GCM encrypted.
+          </div>
+        </div>
+        <!-- Toggle switch -->
+        <label class="pw-switch" style="margin-left:auto;cursor:pointer;display:flex;align-items:center;gap:.5rem">
+          <input type="checkbox" id="pw-toggle-cb" style="display:none" />
+          <div id="pw-switch-track" style="width:40px;height:22px;background:var(--border);border-radius:11px;position:relative;transition:background .2s">
+            <div id="pw-switch-thumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--muted);border-radius:50%;transition:all .2s"></div>
+          </div>
+          <span class="muted" id="pw-switch-label" style="font-size:.75rem">Off</span>
+        </label>
+      </div>
+
+      <div id="pw-fields" style="display:none">
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" name="password" id="pw-input" placeholder="Enter a strong password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" onclick="togglePw('pw-input',this)">👁</button>
+          </div>
+          <div class="pw-strength">
+            <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-fill"></div></div>
+            <div class="pw-strength-label" id="pw-label"></div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Confirm Password</label>
+          <div class="pw-wrap">
+            <input type="password" name="password_confirm" id="pw-confirm" placeholder="Repeat password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" onclick="togglePw('pw-confirm',this)">👁</button>
+          </div>
+          <div class="help-text" id="pw-match-msg" style="color:var(--danger);display:none">Passwords do not match.</div>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="submit-btn">
+      <span id="btn-label">&#8594; Encode Message</span>
+      <span id="btn-spinner" class="spinner" style="display:none"></span>
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  const dropZone   = document.getElementById('drop-zone');
+  const imageInput = document.getElementById('image-input');
+  const dropLabel  = document.getElementById('drop-label');
+  const previewSec = document.getElementById('preview-section');
+  const previewImg = document.getElementById('preview-img');
+  const msgInput   = document.getElementById('message-input');
+  const charCount  = document.getElementById('char-count');
+  const capPct     = document.getElementById('cap-pct');
+  const capFill    = document.getElementById('cap-fill');
+  const capUsed    = document.getElementById('cap-used');
+  const capMax     = document.getElementById('cap-max');
+  const encForm    = document.getElementById('encode-form');
+  const submitBtn  = document.getElementById('submit-btn');
+  const btnLabel   = document.getElementById('btn-label');
+  const btnSpinner = document.getElementById('btn-spinner');
+
+  // Password toggle switch
+  const pwCb     = document.getElementById('pw-toggle-cb');
+  const pwFields = document.getElementById('pw-fields');
+  const pwTrack  = document.getElementById('pw-switch-track');
+  const pwThumb  = document.getElementById('pw-switch-thumb');
+  const pwSlabel = document.getElementById('pw-switch-label');
+  const pwInput  = document.getElementById('pw-input');
+  const pwConfirm= document.getElementById('pw-confirm');
+  const pwMatchMsg=document.getElementById('pw-match-msg');
+
+  if (pwCb) {
+    pwCb.addEventListener('change', () => {
+      const on = pwCb.checked;
+      pwFields.style.display = on ? 'block' : 'none';
+      pwTrack.style.background= on ? 'var(--accent)' : 'var(--border)';
+      pwThumb.style.left      = on ? '21px' : '3px';
+      pwThumb.style.background= on ? '#000' : 'var(--muted)';
+      pwSlabel.textContent    = on ? 'On' : 'Off';
+      if (!on && pwInput)  pwInput.value   = '';
+      if (!on && pwConfirm)pwConfirm.value = '';
+    });
+    // Clicking the whole switch area
+    document.querySelector('.pw-switch') && document.querySelector('.pw-switch').addEventListener('click', ()=>{
+      pwCb.checked = !pwCb.checked;
+      pwCb.dispatchEvent(new Event('change'));
+    });
+  }
+
+  // Password strength
+  if (pwInput) {
+    pwInput.addEventListener('input', () => {
+      const s = pwStrength(pwInput.value);
+      updateStrengthBar(s, 'pw-fill', 'pw-label');
+      checkMatch();
+    });
+  }
+  if (pwConfirm) pwConfirm.addEventListener('input', checkMatch);
+
+  function checkMatch() {
+    if (!pwInput || !pwConfirm || !pwMatchMsg) return;
+    const mismatch = pwInput.value && pwConfirm.value && pwInput.value !== pwConfirm.value;
+    pwMatchMsg.style.display = mismatch ? 'block' : 'none';
+  }
+
+  // Capacity helpers
+  let maxBytes = 0;
+  function fmtBytes(n) {
+    if (n < 1024)       return n + ' B';
+    if (n < 1048576)    return (n/1024).toFixed(1) + ' KB';
+    return (n/1048576).toFixed(2) + ' MB';
+  }
+  function updateCap() {
+    if (!maxBytes || !msgInput) return;
+    const used = new TextEncoder().encode(msgInput.value).length;
+    const pct  = Math.min(100,(used/maxBytes)*100);
+    if (capPct)  capPct.textContent  = pct.toFixed(1) + '%';
+    if (capFill) { capFill.style.width=pct+'%'; capFill.className='capacity-fill'+(pct>90?' full':pct>70?' warn':''); }
+    if (capUsed) capUsed.textContent = fmtBytes(used) + ' used';
+  }
+
+  async function fetchCap(file) {
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    try {
+      const r = await fetch('{% url "capacity" %}', {method:'POST',body:fd});
+      const d = await r.json();
+      if (d.usable_chars) {
+        maxBytes = d.usable_chars;
+        if (capMax) capMax.textContent = fmtBytes(maxBytes) + ' available';
+        updateCap();
+      }
+    } catch(e){}
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    if (dropLabel) dropLabel.innerHTML = '<strong>'+file.name+'</strong><br>'+fmtBytes(file.size);
+    const fr = new FileReader();
+    fr.onload = e => { if(previewImg) previewImg.src = e.target.result; if(previewSec) previewSec.style.display='block'; };
+    fr.readAsDataURL(file);
+    fetchCap(file);
+  }
+
+  if (imageInput) imageInput.addEventListener('change', ()=>handleFile(imageInput.files[0]));
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
+    dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e=>{
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if(f){imageInput.files=e.dataTransfer.files;handleFile(f);}
+    });
+  }
+  if (msgInput) msgInput.addEventListener('input', ()=>{
+    if(charCount) charCount.textContent = msgInput.value.length.toLocaleString()+' chars';
+    updateCap();
+  });
+  if (encForm) encForm.addEventListener('submit', ()=>{
+    if(btnLabel)  btnLabel.textContent = 'Encoding…';
+    if(btnSpinner)btnSpinner.style.display='inline-block';
+    if(submitBtn) submitBtn.disabled=true;
+  });
+})();
+</script>
+{% endblock %}

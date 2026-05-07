@@ -1,0 +1,281 @@
+{% extends "stego/base.html" %}
+{% block title %}Decode — StegoVault{% endblock %}
+{% block content %}
+<div class="fade-up">
+  <p class="muted" style="margin-bottom:.75rem;letter-spacing:.2em">STEGANOGRAPHY — DECODE</p>
+  <h1 style="font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:.5rem">
+    Reveal &amp; <span class="accent">export</span> a secret
+  </h1>
+  <p style="color:var(--muted);font-size:.9rem;margin-bottom:2.5rem">
+    Upload a StegoVault image. If it's password-locked, a dialog will appear automatically.
+  </p>
+</div>
+
+{% if success %}
+<!-- ══════════════════════ SUCCESS ══════════════════════ -->
+<div class="card fade-up">
+  <div class="alert alert-success">&#10003; Hidden message extracted successfully.</div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem">
+    <h2 style="margin-bottom:0">Decoded Message</h2>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <span class="muted">{{ message_len|default:0 }} chars</span>
+      <button class="btn btn-ghost btn-sm" onclick="copyMessage()">&#128203; Copy</button>
+    </div>
+  </div>
+
+  <div class="message-out" id="message-out">{{ message }}</div>
+
+  <!-- ── EXPORT ROW ── -->
+  <div style="margin-top:1.5rem">
+    <div style="font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem">
+      Export Message
+    </div>
+    <div class="export-row">
+      <!-- TXT export -->
+      <form method="post" action="{% url 'export_txt' %}" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="message" value="{{ message }}" />
+        <button type="submit" class="btn btn-secondary btn-sm">&#128196; Save as TXT</button>
+      </form>
+
+      <!-- PDF export -->
+      <form method="post" action="{% url 'export_pdf' %}" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="message" value="{{ message }}" />
+        <button type="submit" class="btn btn-secondary btn-sm">&#128209; Save as PDF</button>
+      </form>
+    </div>
+    <div class="help-text" style="margin-top:.6rem">
+      TXT saves plain text. PDF generates a styled report with timestamp and metadata.
+    </div>
+  </div>
+
+  <hr />
+  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+    <a href="{% url 'decode' %}" class="btn btn-secondary">&#8592; Decode Another</a>
+    <a href="{% url 'encode' %}" class="btn btn-ghost">&#8594; Encode a Message</a>
+  </div>
+</div>
+
+<script>
+function copyMessage() {
+  const text = document.getElementById('message-out').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('[onclick="copyMessage()"]');
+    const orig = btn.textContent;
+    btn.textContent = '&#10003; Copied!';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'var(--accent)';
+    setTimeout(()=>{ btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; }, 2200);
+  });
+}
+</script>
+
+{% else %}
+<!-- ══════════════════════ FORM ══════════════════════ -->
+<div class="card fade-up delay-1">
+  {% if error %}
+    <div class="alert {% if needs_password %}alert-warn{% else %}alert-error{% endif %}">
+      {% if needs_password %}&#128274;{% else %}&#9888;{% endif %} {{ error }}
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="decode-form">
+    {% csrf_token %}
+
+    <!-- Image upload -->
+    <div class="form-group">
+      <label>Stego Image</label>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" name="image" id="image-input" accept="image/*" required />
+        <div class="drop-icon">&#128269;</div>
+        <div class="drop-label" id="drop-label">
+          <strong>Click to upload</strong> or drag &amp; drop<br>Any image format — max 10 MB
+        </div>
+      </div>
+    </div>
+
+    <!-- Lock status badge -->
+    <div id="lock-status" style="display:none;margin-bottom:1.5rem">
+      <span id="lock-badge" class="lock-badge">…</span>
+      <span class="help-text" id="lock-hint" style="display:inline-block;margin-left:.5rem"></span>
+    </div>
+
+    <!-- Preview + stats -->
+    <div id="preview-section" style="display:none;margin-bottom:1.75rem">
+      <div class="preview-box"><img id="preview-img" src="" alt="Preview" style="max-height:220px"/></div>
+      <div class="stats-row" style="margin-top:.75rem">
+        <div class="stat">
+          <div class="stat-label">File Name</div>
+          <div class="stat-value" id="file-name" style="font-size:.82rem;word-break:break-all">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">File Size</div>
+          <div class="stat-value" id="file-size">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password field (shown when needed_password or image is locked) -->
+    <div id="pw-section" style="{% if needs_password %}display:block{% else %}display:none{% endif %};margin-bottom:1.75rem">
+      <label>Password</label>
+      <div class="pw-wrap">
+        <input type="password" name="password" id="pw-input"
+          placeholder="Enter the image password"
+          autocomplete="current-password"
+          value="" />
+        <button type="button" class="pw-toggle" onclick="togglePw('pw-input',this)">👁</button>
+      </div>
+      <div class="help-text">This image is password-protected. Enter the correct password to decode.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="submit-btn">
+      <span id="btn-label">&#8592; Decode Image</span>
+      <span id="btn-spinner" class="spinner" style="display:none"></span>
+    </button>
+  </form>
+</div>
+
+<!-- ── Password Pop-up Modal ── -->
+<div class="modal-backdrop" id="pw-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+    <span class="modal-icon">&#128274;</span>
+    <h3>Password Required</h3>
+    <p>
+      This image is <strong>password-protected</strong>.<br>
+      Enter the password used when encoding to reveal the hidden message.
+    </p>
+    <div class="pw-wrap" style="margin-bottom:.5rem">
+      <input type="password" id="modal-pw-input" placeholder="Enter password…"
+        autocomplete="current-password"
+        style="background:var(--bg)"
+        onkeydown="if(event.key==='Enter')applyModalPassword()" />
+      <button type="button" class="pw-toggle" onclick="togglePw('modal-pw-input',this)">👁</button>
+    </div>
+    <div class="help-text" id="modal-hint">Password is case-sensitive.</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="applyModalPassword()">&#8594; Unlock &amp; Decode</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hint card -->
+<div class="card fade-up delay-2" style="margin-top:1.5rem;padding:1.5rem">
+  <h2 style="font-size:1rem;margin-bottom:.75rem">&#9432; What to expect</h2>
+  <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem">
+    <li style="font-size:.85rem;color:var(--muted);font-family:var(--mono)">&#8594; StegoVault auto-detects if the image is password-locked.</li>
+    <li style="font-size:.85rem;color:var(--muted);font-family:var(--mono)">&#8594; A pop-up will appear if a password is needed.</li>
+    <li style="font-size:.85rem;color:var(--muted);font-family:var(--mono)">&#8594; JPEG images may fail — JPEG compression destroys LSB data.</li>
+    <li style="font-size:.85rem;color:var(--muted);font-family:var(--mono)">&#8594; After decoding, export the message as TXT or PDF.</li>
+  </ul>
+</div>
+
+<script>
+(function(){
+  const dropZone   = document.getElementById('drop-zone');
+  const imageInput = document.getElementById('image-input');
+  const dropLabel  = document.getElementById('drop-label');
+  const previewSec = document.getElementById('preview-section');
+  const previewImg = document.getElementById('preview-img');
+  const fileNameEl = document.getElementById('file-name');
+  const fileSizeEl = document.getElementById('file-size');
+  const lockStatus = document.getElementById('lock-status');
+  const lockBadge  = document.getElementById('lock-badge');
+  const lockHint   = document.getElementById('lock-hint');
+  const pwSection  = document.getElementById('pw-section');
+  const pwInput    = document.getElementById('pw-input');
+  const decodeForm = document.getElementById('decode-form');
+  const submitBtn  = document.getElementById('submit-btn');
+  const btnLabel   = document.getElementById('btn-label');
+  const btnSpinner = document.getElementById('btn-spinner');
+  const modal      = document.getElementById('pw-modal');
+  const modalPwIn  = document.getElementById('modal-pw-input');
+
+  function fmtBytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(2)+' MB'; }
+
+  function showModal() {
+    if(modal){ modal.classList.add('open'); setTimeout(()=>modalPwIn&&modalPwIn.focus(),80); }
+  }
+  window.closeModal = function(){
+    if(modal) modal.classList.remove('open');
+  };
+  window.applyModalPassword = function(){
+    if(!modalPwIn||!pwInput) return;
+    pwInput.value = modalPwIn.value;
+    closeModal();
+    // Show inline pw field too
+    if(pwSection) pwSection.style.display='block';
+    // Auto-submit
+    decodeForm && decodeForm.requestSubmit();
+  };
+
+  // Close modal on backdrop click
+  modal && modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+
+  // Escape key
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+  async function checkLock(file){
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    try {
+      const r = await fetch('{% url "check_lock" %}', {method:'POST',body:fd});
+      const d = await r.json();
+      if(lockStatus) lockStatus.style.display='block';
+      if(d.locked){
+        lockBadge.className = 'lock-badge locked';
+        lockBadge.innerHTML = '&#128274; Password Protected';
+        lockHint.textContent= 'A password is required to decode this image.';
+        // Show modal automatically
+        showModal();
+        if(pwSection) pwSection.style.display='block';
+      } else {
+        lockBadge.className = 'lock-badge unlocked';
+        lockBadge.innerHTML = '&#128275; No Password';
+        lockHint.textContent= 'This image has no password protection.';
+        if(pwSection) pwSection.style.display='none';
+      }
+    } catch(e){}
+  }
+
+  function handleFile(file){
+    if(!file) return;
+    const sz = fmtBytes(file.size);
+    if(dropLabel) dropLabel.innerHTML = '<strong>'+file.name+'</strong><br>'+sz;
+    if(fileNameEl) fileNameEl.textContent = file.name;
+    if(fileSizeEl) fileSizeEl.textContent = sz;
+    const fr = new FileReader();
+    fr.onload = e=>{ if(previewImg) previewImg.src=e.target.result; if(previewSec) previewSec.style.display='block'; };
+    fr.readAsDataURL(file);
+    checkLock(file);
+  }
+
+  if(imageInput) imageInput.addEventListener('change', ()=>handleFile(imageInput.files[0]));
+  if(dropZone){
+    dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
+    dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e=>{
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      const f=e.dataTransfer.files[0];
+      if(f){imageInput.files=e.dataTransfer.files;handleFile(f);}
+    });
+  }
+
+  if(decodeForm) decodeForm.addEventListener('submit', ()=>{
+    if(btnLabel)  btnLabel.textContent='Decoding…';
+    if(btnSpinner)btnSpinner.style.display='inline-block';
+    if(submitBtn) submitBtn.disabled=true;
+  });
+
+  // If server returned needs_password, show modal right away
+  {% if needs_password %}
+  window.addEventListener('DOMContentLoaded', ()=>{ showModal(); });
+  {% endif %}
+})();
+</script>
+{% endif %}
+{% endblock %}
