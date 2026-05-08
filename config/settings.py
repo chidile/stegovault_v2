@@ -7,7 +7,7 @@ SECRET_KEY = '^@m-m:OCukTsDR{8nmbxBe1G=b13A9^o|+Y)0w%LsvC+8ggOPRpc5tzX2tu2(b6VPd
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["127.0.0.1", "localhost",'https://stego-vault-krnn.onrender.com','stegovault.pythonanywhere.com']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
